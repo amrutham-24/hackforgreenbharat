@@ -733,35 +733,52 @@ This starts four services:
 
 ## Azure Cloud Deployment
 
-The platform deploys to Azure using the Azure CLI (`az`). Resources created in the `centralindia` region:
+The platform is designed to deploy to Azure using the Azure CLI (`az`). The deployment script in `backend/scripts/deploy-azure.ps1` provisions the following resources in the `centralindia` region:
+
+- **Resource Group**: Logical container for all resources
+- **App Service Plan** (Linux, B1): Shared compute for API and Web
+- **Azure Database for PostgreSQL** (Flexible Server): Managed relational database
+- **Azure Cache for Redis**: Managed caching and PubSub
+
+### Deployment Steps
 
 ```bash
+# 1. Login to Azure
 az login
+
+# 2. Create resource group
 az group create --name green-bharath-rg --location centralindia
 
+# 3. Create App Service Plan
 az appservice plan create \
   --name green-bharath-plan \
   --resource-group green-bharath-rg \
   --sku B1 --is-linux
 
+# 4. Create API Web App
 az webapp create \
   --resource-group green-bharath-rg \
   --plan green-bharath-plan \
-  --name greenbharat-api \
+  --name <your-api-app-name> \
   --runtime "PYTHON:3.12"
 
+# 5. Create Frontend Web App
 az webapp create \
   --resource-group green-bharath-rg \
   --plan green-bharath-plan \
-  --name greenbharat-web \
+  --name <your-web-app-name> \
   --runtime "NODE:22-lts"
+
+# 6. Deploy API code
+cd backend
+az webapp up --name <your-api-app-name> --resource-group green-bharath-rg
+
+# 7. Deploy Frontend code
+cd frontend
+az webapp up --name <your-web-app-name> --resource-group green-bharath-rg
 ```
 
-**Deployed URLs**:
-- API: `https://greenbharat-api.azurewebsites.net`
-- Web: `https://greenbharat-web.azurewebsites.net`
-
-See `backend/scripts/deploy-azure.ps1` for the full provisioning script including PostgreSQL Flexible Server and Redis Cache.
+See `backend/scripts/deploy-azure.ps1` for the full provisioning script including PostgreSQL Flexible Server, Redis Cache, and environment variable configuration.
 
 ---
 
