@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="60" y1="40" x2="150" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#d1fae5"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="40" fill="url(#bg)"/>
+  <!-- Leaf shape -->
+  <path d="M100 35 C60 55, 40 100, 70 140 C80 155, 95 160, 100 165 C105 160, 120 155, 130 140 C160 100, 140 55, 100 35Z" fill="url(#leaf)" opacity="0.95"/>
+  <!-- Leaf vein -->
+  <path d="M100 50 L100 145" stroke="#059669" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M100 70 L80 90" stroke="#059669" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M100 85 L120 100" stroke="#059669" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M100 100 L82 118" stroke="#059669" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <path d="M100 115 L115 128" stroke="#059669" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <!-- Graph bars at bottom -->
+  <rect x="55" y="148" width="12" height="22" rx="3" fill="white" opacity="0.7"/>
+  <rect x="72" y="140" width="12" height="30" rx="3" fill="white" opacity="0.8"/>
+  <rect x="89" y="132" width="12" height="38" rx="3" fill="white" opacity="0.9"/>
+  <rect x="106" y="138" width="12" height="32" rx="3" fill="white" opacity="0.8"/>
+  <rect x="123" y="145" width="12" height="25" rx="3" fill="white" opacity="0.7"/>
+</svg>
