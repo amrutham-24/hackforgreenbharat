@@ -2,11 +2,26 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
     Column, String, Float, Integer, DateTime, Text, Boolean,
-    ForeignKey, Index, JSON, Enum as SAEnum
+    ForeignKey, Index, JSON, TypeDecorator
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.session import Base
+
+
+class StringUUID(TypeDecorator):
+    """Platform-agnostic UUID type that stores as String(36)."""
+    impl = String(36)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return str(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return str(value)
+        return value
 
 
 def utcnow():
@@ -19,7 +34,7 @@ def new_uuid():
 
 class Tenant(Base):
     __tablename__ = "tenants"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
     name = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
@@ -29,8 +44,8 @@ class Tenant(Base):
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
     email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), default="")
@@ -45,8 +60,8 @@ class User(Base):
 
 class Company(Base):
     __tablename__ = "companies"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
     name = Column(String(255), nullable=False)
     ticker = Column(String(20))
     sector = Column(String(100))
@@ -63,9 +78,9 @@ class Company(Base):
 
 class ESGScore(Base):
     __tablename__ = "esg_scores"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
-    company_id = Column(UUID(as_uuid=False), ForeignKey("companies.id"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
+    company_id = Column(StringUUID, ForeignKey("companies.id"), nullable=False)
     overall = Column(Float, nullable=False)
     environmental = Column(Float, nullable=False)
     social = Column(Float, nullable=False)
@@ -83,9 +98,9 @@ class ESGScore(Base):
 
 class ESGEvent(Base):
     __tablename__ = "esg_events"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
-    company_id = Column(UUID(as_uuid=False), ForeignKey("companies.id"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
+    company_id = Column(StringUUID, ForeignKey("companies.id"), nullable=False)
     title = Column(String(500), nullable=False)
     description = Column(Text, default="")
     source_url = Column(String(1000), default="")
@@ -111,10 +126,10 @@ class ESGEvent(Base):
 
 class RAGDocument(Base):
     __tablename__ = "rag_documents"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
-    company_id = Column(UUID(as_uuid=False), ForeignKey("companies.id"), nullable=False)
-    event_id = Column(UUID(as_uuid=False), ForeignKey("esg_events.id"), nullable=True)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
+    company_id = Column(StringUUID, ForeignKey("companies.id"), nullable=False)
+    event_id = Column(StringUUID, ForeignKey("esg_events.id"), nullable=True)
     title = Column(String(500), nullable=False)
     content = Column(Text, nullable=False)
     source_url = Column(String(1000), default="")
@@ -127,9 +142,9 @@ class RAGDocument(Base):
 
 class Watchlist(Base):
     __tablename__ = "watchlists"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(StringUUID, ForeignKey("users.id"), nullable=False)
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
@@ -140,9 +155,9 @@ class Watchlist(Base):
 
 class WatchlistItem(Base):
     __tablename__ = "watchlist_items"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    watchlist_id = Column(UUID(as_uuid=False), ForeignKey("watchlists.id"), nullable=False)
-    company_id = Column(UUID(as_uuid=False), ForeignKey("companies.id"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    watchlist_id = Column(StringUUID, ForeignKey("watchlists.id"), nullable=False)
+    company_id = Column(StringUUID, ForeignKey("companies.id"), nullable=False)
     added_at = Column(DateTime(timezone=True), default=utcnow)
 
     watchlist = relationship("Watchlist", back_populates="items")
@@ -152,11 +167,11 @@ class WatchlistItem(Base):
 
 class AlertRule(Base):
     __tablename__ = "alert_rules"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
-    user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(StringUUID, ForeignKey("users.id"), nullable=False)
     name = Column(String(255), nullable=False)
-    company_id = Column(UUID(as_uuid=False), ForeignKey("companies.id"), nullable=True)
+    company_id = Column(StringUUID, ForeignKey("companies.id"), nullable=True)
     condition_type = Column(String(50), nullable=False)  # score_drop, severity_gte, category_match
     threshold = Column(Float, default=0)
     category_filter = Column(String(50), default="")
@@ -169,10 +184,10 @@ class AlertRule(Base):
 
 class AlertDelivery(Base):
     __tablename__ = "alert_deliveries"
-    id = Column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
-    tenant_id = Column(UUID(as_uuid=False), ForeignKey("tenants.id"), nullable=False)
-    rule_id = Column(UUID(as_uuid=False), ForeignKey("alert_rules.id"), nullable=False)
-    event_id = Column(UUID(as_uuid=False), ForeignKey("esg_events.id"), nullable=True)
+    id = Column(StringUUID, primary_key=True, default=new_uuid)
+    tenant_id = Column(StringUUID, ForeignKey("tenants.id"), nullable=False)
+    rule_id = Column(StringUUID, ForeignKey("alert_rules.id"), nullable=False)
+    event_id = Column(StringUUID, ForeignKey("esg_events.id"), nullable=True)
     channel = Column(String(50), nullable=False)
     status = Column(String(50), default="sent")
     payload = Column(JSON, default=dict)

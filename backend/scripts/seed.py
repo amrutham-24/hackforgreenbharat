@@ -18,7 +18,7 @@ from app.db.models import (
     Watchlist, WatchlistItem, AlertRule,
 )
 from app.core.auth import hash_password
-from app.services.rag import upsert_document
+from app.services.rag import _mock_embedding, _local_vectors
 
 DEMO_TENANT_ID = "00000000-0000-0000-0000-000000000001"
 DEMO_USER_ID = "00000000-0000-0000-0000-000000000002"
@@ -177,18 +177,19 @@ async def seed():
                 db.add(rag_doc)
                 await db.flush()
 
-                await upsert_document(
-                    doc_id=rag_doc.id,
-                    text=rag_doc.content,
-                    metadata={
-                        "tenant_id": DEMO_TENANT_ID,
-                        "company_id": cid,
-                        "title": title,
-                        "source_url": rag_doc.source_url,
-                        "ts": event_date.isoformat(),
-                        "text": rag_doc.content[:500],
-                    },
-                )
+                meta = {
+                    "tenant_id": DEMO_TENANT_ID,
+                    "company_id": cid,
+                    "title": title,
+                    "source_url": rag_doc.source_url,
+                    "ts": event_date.isoformat(),
+                    "text": rag_doc.content[:500],
+                }
+                _local_vectors[rag_doc.id] = {
+                    "values": _mock_embedding(rag_doc.content),
+                    "metadata": meta,
+                    "text": rag_doc.content,
+                }
 
             for day_offset in range(30, -1, -1):
                 base = 75 - random.uniform(0, 25)

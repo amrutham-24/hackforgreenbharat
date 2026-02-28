@@ -3,25 +3,23 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://esg_user:esg_pass@localhost:5432/esg_db"
-    DATABASE_URL_SYNC: str = "postgresql://esg_user:esg_pass@localhost:5432/esg_db"
-    REDIS_URL: str = "redis://localhost:6379/0"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./esg.db"
+    REDIS_URL: str = ""
 
     JWT_SECRET_KEY: str = "change-me"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 1440
 
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # Azure OpenAI
+    AZURE_OPENAI_API_KEY: str = ""
+    AZURE_OPENAI_ENDPOINT: str = ""
+    AZURE_OPENAI_CHAT_DEPLOYMENT: str = "gpt-5-mini"
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT: str = "text-embedding-ada-002"
+    AZURE_OPENAI_API_VERSION: str = "2024-12-01-preview"
 
     PINECONE_API_KEY: str = ""
     PINECONE_INDEX: str = "esg-rag"
     PINECONE_ENVIRONMENT: str = "us-east-1"
-
-    AZURE_SUBSCRIPTION_ID: str = ""
-    AZURE_RESOURCE_GROUP: str = "green-bharath-rg"
-    AZURE_LOCATION: str = "centralindia"
 
     SLACK_WEBHOOK_URL: str = ""
     SMTP_HOST: str = ""

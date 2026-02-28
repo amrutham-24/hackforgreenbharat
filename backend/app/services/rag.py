@@ -1,20 +1,18 @@
 """
 RAG (Retrieval-Augmented Generation) service for ESG chat.
 
-- Stores document embeddings in Pinecone (or local mock)
+- Stores document embeddings locally (or Pinecone when configured)
 - Retrieves top-K evidence docs filtered by tenant_id + company_id
-- Generates answers with citations
+- Generates answers with citations using Azure OpenAI
 """
-import json
 import logging
 import hashlib
-from typing import List, Optional, Tuple
-from datetime import datetime
-from openai import AsyncOpenAI
+from typing import List
+from openai import AsyncAzureOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
-from app.db.models import RAGDocument, ESGEvent, ESGScore
+from app.db.models import ESGScore
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +21,16 @@ _local_vectors: dict = {}
 
 async def create_embedding(text: str) -> List[float]:
     settings = get_settings()
-    if not settings.OPENAI_API_KEY:
+    if not settings.AZURE_OPENAI_API_KEY:
         return _mock_embedding(text)
     try:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        client = AsyncAzureOpenAI(
+            api_key=settings.AZURE_OPENAI_API_KEY,
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_version=settings.AZURE_OPENAI_API_VERSION,
+        )
         response = await client.embeddings.create(
-            model=settings.OPENAI_EMBEDDING_MODEL,
+            model=settings.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
             input=text[:8000],
         )
         return response.data[0].embedding
@@ -39,7 +41,7 @@ async def create_embedding(text: str) -> List[float]:
 
 def _mock_embedding(text: str) -> List[float]:
     h = hashlib.md5(text.encode()).hexdigest()
-    return [int(c, 16) / 15.0 for c in h] * 96  # 1536-dim mock
+    return [int(c, 16) / 15.0 for c in h] * 96
 
 
 async def upsert_document(doc_id: str, text: str, metadata: dict):
@@ -60,12 +62,13 @@ async def upsert_document(doc_id: str, text: str, metadata: dict):
 
 
 async def query_similar(
-    query: str, tenant_id: str, company_id: str, top_k: int = 5
+    query: str, tenant_id: str, company_id: str, top_k: int = 5,
+    db: "AsyncSession | None" = None,
 ) -> List[dict]:
     settings = get_settings()
-    query_embedding = await create_embedding(query)
 
     if settings.PINECONE_API_KEY:
+        query_embedding = await create_embedding(query)
         try:
             from pinecone import Pinecone
             pc = Pinecone(api_key=settings.PINECONE_API_KEY)
@@ -77,17 +80,46 @@ async def query_similar(
                 include_metadata=True,
             )
             return [
-                {
-                    "id": m.id,
-                    "score": m.score,
-                    "metadata": m.metadata,
-                }
+                {"id": m.id, "score": m.score, "metadata": m.metadata}
                 for m in results.matches
             ]
         except Exception as e:
-            logger.warning(f"Pinecone query failed, using local: {e}")
+            logger.warning(f"Pinecone query failed, using DB fallback: {e}")
 
+    if db is not None:
+        return await _db_query(db, tenant_id, company_id, top_k)
+
+    query_embedding = await create_embedding(query)
     return _local_query(query_embedding, tenant_id, company_id, top_k)
+
+
+async def _db_query(db, tenant_id: str, company_id: str, top_k: int) -> List[dict]:
+    """Retrieve RAG documents directly from DB when vector store is unavailable."""
+    from app.db.models import RAGDocument, ESGEvent
+    result = await db.execute(
+        select(RAGDocument)
+        .where(
+            RAGDocument.tenant_id == tenant_id,
+            RAGDocument.company_id == company_id,
+        )
+        .order_by(RAGDocument.created_at.desc())
+        .limit(top_k)
+    )
+    docs = result.scalars().all()
+    return [
+        {
+            "id": str(doc.id),
+            "score": 1.0,
+            "metadata": {
+                "title": doc.title,
+                "source_url": doc.source_url or "",
+                "ts": doc.created_at.isoformat() if doc.created_at else "",
+                "text": doc.content[:500],
+            },
+            "text": doc.content,
+        }
+        for doc in docs
+    ]
 
 
 def _cosine_sim(a: List[float], b: List[float]) -> float:
@@ -146,7 +178,7 @@ async def generate_chat_answer(
     elif recent_scores:
         score_context = f"\nLatest score: {recent_scores[0].overall}. Risk level: {recent_scores[0].risk_level}."
 
-    if not settings.OPENAI_API_KEY:
+    if not settings.AZURE_OPENAI_API_KEY:
         answer = f"Based on the available evidence, here is what I found regarding your query about this company.{score_context}\n\n"
         if citations:
             answer += "Key findings from recent events:\n"
@@ -157,7 +189,11 @@ async def generate_chat_answer(
         return {"answer": answer, "citations": citations, "used_company_id": company_id}
 
     try:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        client = AsyncAzureOpenAI(
+            api_key=settings.AZURE_OPENAI_API_KEY,
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_version=settings.AZURE_OPENAI_API_VERSION,
+        )
         system_prompt = (
             "You are an ESG risk intelligence assistant. Answer questions about company ESG performance "
             "using the provided evidence documents. Always cite sources using [1], [2], etc. "
@@ -172,18 +208,19 @@ Evidence:
 Answer the question using the evidence above. Cite sources with [1], [2], etc."""
 
         response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.3,
-            max_tokens=500,
+            max_completion_tokens=4000,
         )
         answer = response.choices[0].message.content.strip()
         return {"answer": answer, "citations": citations, "used_company_id": company_id}
     except Exception as e:
-        logger.error(f"Chat generation failed: {e}")
+        import traceback
+        logger.error(f"Chat generation failed: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
         return {
             "answer": f"I encountered an error generating a response. {score_context}",
             "citations": citations,

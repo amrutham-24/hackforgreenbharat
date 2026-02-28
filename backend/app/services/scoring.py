@@ -22,6 +22,10 @@ BASE_SCORE = 75.0
 
 def recency_decay(event_date: datetime, now: Optional[datetime] = None) -> float:
     now = now or datetime.now(timezone.utc)
+    if event_date.tzinfo is None:
+        event_date = event_date.replace(tzinfo=timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
     days_ago = max((now - event_date).total_seconds() / 86400, 0)
     return math.exp(-0.693 * days_ago / HALF_LIFE_DAYS)
 

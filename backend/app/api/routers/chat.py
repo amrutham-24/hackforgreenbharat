@@ -43,6 +43,7 @@ async def chat(
         tenant_id=current_user.tenant_id,
         company_id=company_id,
         top_k=5,
+        db=db,
     )
 
     answer_data = await generate_chat_answer(

@@ -1,5 +1,5 @@
 """
-ESG Event Classifier using LLM (OpenAI-compatible)
+ESG Event Classifier using Azure OpenAI.
 
 Classifies raw event text into:
 - category: environmental | social | governance
@@ -10,8 +10,7 @@ Classifies raw event text into:
 """
 import json
 import logging
-from typing import Optional
-from openai import AsyncOpenAI
+from openai import AsyncAzureOpenAI
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -29,30 +28,25 @@ Event Description: {description}
 
 Return ONLY valid JSON, no markdown or explanation."""
 
-FALLBACK_CLASSIFICATION = {
-    "category": "governance",
-    "subcategory": "general",
-    "severity": 5,
-    "confidence": 0.5,
-    "sentiment": "negative",
-}
-
 
 async def classify_event(title: str, description: str) -> dict:
     settings = get_settings()
-    if not settings.OPENAI_API_KEY:
+    if not settings.AZURE_OPENAI_API_KEY:
         return _rule_based_classify(title, description)
 
     try:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        client = AsyncAzureOpenAI(
+            api_key=settings.AZURE_OPENAI_API_KEY,
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+            api_version=settings.AZURE_OPENAI_API_VERSION,
+        )
         response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
             messages=[
                 {"role": "system", "content": "You are an ESG classification expert. Return only valid JSON."},
                 {"role": "user", "content": CLASSIFICATION_PROMPT.format(title=title, description=description)},
             ],
-            temperature=0.1,
-            max_tokens=200,
+            max_completion_tokens=1000,
         )
         raw = response.choices[0].message.content.strip()
         if raw.startswith("```"):

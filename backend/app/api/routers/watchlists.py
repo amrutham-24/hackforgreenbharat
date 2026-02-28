@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.db.models import Watchlist, WatchlistItem
@@ -15,7 +16,9 @@ async def list_watchlists(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Watchlist).where(
+        select(Watchlist)
+        .options(selectinload(Watchlist.items))
+        .where(
             Watchlist.tenant_id == current_user.tenant_id,
             Watchlist.user_id == current_user.sub,
         )
@@ -47,7 +50,9 @@ async def get_watchlist(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Watchlist).where(
+        select(Watchlist)
+        .options(selectinload(Watchlist.items))
+        .where(
             Watchlist.id == watchlist_id,
             Watchlist.tenant_id == current_user.tenant_id,
         )
